@@ -7,7 +7,7 @@ import { Suspense } from "react"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "InstantCare - Agendamento de Consultas",
+  title: "FOLISSA+ - Agendamento de Consultas",
   description: "Não espere para cuidar da sua saúde. Agende consultas hospitalares de forma rápida e fácil.",
   generator: "v0.app",
 }

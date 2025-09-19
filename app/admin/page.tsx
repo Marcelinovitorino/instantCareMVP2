@@ -324,7 +324,7 @@ export default function AdminDashboard() {
         <div className="flex flex-col flex-grow bg-gray-800 border-r border-gray-700 pt-5 pb-4 overflow-y-auto">
           <div className="flex items-center flex-shrink-0 px-4">
             <h1 className="text-2xl font-bold">
-              InstantCare <span className="text-blue-400">Admin</span>
+              FOLISSA+ <span className="text-blue-400">Admin</span>
             </h1>
           </div>
           <div className="mt-8 flex-grow flex flex-col">
@@ -368,7 +368,7 @@ export default function AdminDashboard() {
             <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
               <div className="flex-shrink-0 flex items-center px-4">
                 <h1 className="text-xl font-bold">
-                  InstantCare <span className="text-blue-400">Admin</span>
+                  FOLISSA+ <span className="text-blue-400">Admin</span>
                 </h1>
               </div>
               <nav className="mt-5 px-2 space-y-1">
@@ -436,7 +436,7 @@ export default function AdminDashboard() {
               {/* Header */}
               <div>
                 <h1 className="text-3xl font-bold text-white">Painel de Controle</h1>
-                <p className="text-gray-400 mt-2">Monitor your InstantCare system performance and metrics</p>
+                <p className="text-gray-400 mt-2">Monitor your FOLISSA+ system performance and metrics</p>
               </div>
 
               {/* Stats Grid */}
