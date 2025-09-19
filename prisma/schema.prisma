@@ -1,0 +1,218 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 Int       @id @default(autoincrement())
+  uuid               String    @unique @default(uuid())
+  email              String    @unique
+  password_hash      String
+  name               String
+  phone              String?
+  birth_date         DateTime?
+  gender             String?   // 'male', 'female', 'other', 'prefer_not_to_say'
+  blood_type         String?   // 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'
+  address            String?
+  emergency_contact  String?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @default(now()) @updatedAt
+  is_active          Boolean   @default(true)
+
+  // Relações
+  appointments      Appointment[]
+  prescriptions     Prescription[]
+  medical_exams     MedicalExam[]
+  health_metrics    HealthMetric[]
+  reminders         Reminder[]
+  settings          UserSettings?
+  access_logs       AccessLog[]
+
+  @@map("users")
+}
+
+model Doctor {
+  id              Int       @id @default(autoincrement())
+  uuid            String    @unique @default(uuid())
+  name            String
+  specialty       String
+  license_number  String?   @unique
+  email           String?   @unique
+  phone           String?
+  is_active       Boolean   @default(true)
+  created_at      DateTime  @default(now())
+
+  // Relações
+  appointments    Appointment[]
+  prescriptions   Prescription[]
+
+  @@map("doctors")
+}
+
+model Hospital {
+  id         Int       @id @default(autoincrement())
+  name       String
+  address    String?
+  phone      String?
+  email      String?
+  is_active  Boolean   @default(true)
+  created_at DateTime  @default(now())
+
+  // Relações
+  appointments Appointment[]
+
+  @@map("hospitals")
+}
+
+model Appointment {
+  id                 Int       @id @default(autoincrement())
+  uuid               String    @unique @default(uuid())
+  consultation_code  String    @unique
+  scheduled_date     DateTime
+  start_time         String
+  end_time           String
+  status             String    @default("scheduled") // 'scheduled', 'completed', 'cancelled', 'no_show'
+  reason             String?
+  diagnosis          String?
+  notes              String?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @default(now()) @updatedAt
+
+  // Relações
+  user_id     Int
+  user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  doctor_id   Int?
+  doctor      Doctor?   @relation(fields: [doctor_id], references: [id], onDelete: SetNull)
+  hospital_id Int?
+  hospital    Hospital? @relation(fields: [hospital_id], references: [id], onDelete: SetNull)
+
+  prescriptions Prescription[]
+  medical_exams MedicalExam[]
+
+  @@map("appointments")
+}
+
+model Prescription {
+  id              Int       @id @default(autoincrement())
+  uuid            String    @unique @default(uuid())
+  issue_date      DateTime
+  expiration_date DateTime?
+  instructions    String?
+  created_at      DateTime  @default(now())
+
+  // Relações
+  appointment_id Int?
+  appointment    Appointment? @relation(fields: [appointment_id], references: [id], onDelete: Cascade)
+  doctor_id      Int?
+  doctor         Doctor?     @relation(fields: [doctor_id], references: [id], onDelete: SetNull)
+  user_id        Int
+  user           User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  medications PrescribedMedication[]
+
+  @@map("prescriptions")
+}
+
+model PrescribedMedication {
+  id               Int     @id @default(autoincrement())
+  medication_name  String
+  dosage           String?
+  frequency        String?
+  duration         String?
+  instructions     String?
+
+  // Relações
+  prescription_id Int
+  prescription    Prescription @relation(fields: [prescription_id], references: [id], onDelete: Cascade)
+
+  @@map("prescribed_medications")
+}
+
+model MedicalExam {
+  id           Int       @id @default(autoincrement())
+  uuid         String    @unique @default(uuid())
+  exam_type    String
+  exam_date    DateTime
+  results      String?
+  lab_name     String?
+  doctor_notes String?
+  created_at   DateTime  @default(now())
+
+  // Relações
+  user_id        Int
+  user           User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  appointment_id Int?
+  appointment    Appointment? @relation(fields: [appointment_id], references: [id], onDelete: SetNull)
+
+  @@map("medical_exams")
+}
+
+model UserSettings {
+  id                   Int      @id @default(autoincrement())
+  email_notifications  Boolean  @default(true)
+  sms_notifications    Boolean  @default(false)
+  appointment_reminders Boolean @default(true)
+  medication_reminders Boolean @default(true)
+  data_sharing         Boolean  @default(false)
+  health_records_access String  @default("me") // 'me', 'doctors', 'all'
+  theme                String   @default("light") // 'light', 'dark', 'system'
+  language             String   @default("portuguese") // 'portuguese', 'english', 'spanish'
+  updated_at           DateTime @default(now()) @updatedAt
+
+  // Relações
+  user_id Int   @unique
+  user    User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+model HealthMetric {
+  id          Int       @id @default(autoincrement())
+  metric_type String
+  value       String
+  unit        String?
+  measured_at DateTime  @default(now())
+  notes       String?
+  created_at  DateTime  @default(now())
+
+  // Relações
+  user_id Int
+  user    User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("health_metrics")
+}
+
+model Reminder {
+  id             Int       @id @default(autoincrement())
+  type           String    // 'appointment', 'medication', 'general'
+  title          String
+  message        String?
+  scheduled_time DateTime
+  is_completed   Boolean   @default(false)
+  created_at     DateTime  @default(now())
+
+  // Relações
+  user_id Int
+  user    User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("reminders")
+}
+
+model AccessLog {
+  id         Int      @id @default(autoincrement())
+  action     String
+  ip_address String?
+  user_agent String?
+  created_at DateTime @default(now())
+
+  // Relações
+  user_id Int?
+  user    User?  @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@map("access_logs")
+}
