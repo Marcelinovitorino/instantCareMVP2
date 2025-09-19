@@ -22,6 +22,7 @@ export function middleware(request: NextRequest) {
   return NextResponse.next()
 }
 
+// src/middleware.ts - Atualize a configuração
 export const config = {
   matcher: [
     '/',
@@ -32,6 +33,13 @@ export const config = {
     '/profile/:path*',
     '/settings/:path*',
     '/history/:path*',
-    '/prescriptions/:path*'
+    '/prescriptions/:path*',
+    '/api/appointments/:path*',
+    '/api/prescriptions/:path*',
+    '/api/medical-history/:path*',
+    '/api/medical-exams/:path*',
+    '/api/settings/:path*',
+    '/api/health-metrics/:path*',
+    '/api/reminders/:path*'
   ]
 }

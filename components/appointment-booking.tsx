@@ -1,15 +1,14 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, User, Stethoscope, ArrowLeft, Edit3, Brain, Clock, TrendingUp } from "lucide-react"
+import { Calendar, User, Stethoscope, ArrowLeft, Edit3, Brain, Clock, TrendingUp, Loader2 } from "lucide-react"
 
 interface AppointmentData {
   consultationCode: string
@@ -27,106 +26,156 @@ interface AIRecommendation {
   waitTime: string
 }
 
-const services = [
-  "Checkup geral",
-  "Consulta de pediatria",
-  "Consulta de cardiologia",
-  "Consulta de dermatologia",
-  "Consulta de ginecologia",
-  "Consulta de oftalmologia",
-]
-
-const doctors = ["José guimarães", "Ana Silva", "Carlos Santos", "Maria Fernandes", "João Pereira"]
-
-const timeSlots = [
-  "08:00",
-  "08:30",
-  "09:00",
-  "09:30",
-  "10:00",
-  "10:30",
-  "11:00",
-  "11:30",
-  "14:00",
-  "14:30",
-  "15:00",
-  "15:30",
-  "16:00",
-  "16:30",
-  "17:00",
-  "17:30",
-]
+interface AppointmentOptions {
+  services: string[]
+  doctors: Array<{ id: number; name: string; specialty: string }>
+  hospitals: Array<{ id: number; name: string; address?: string }>
+  timeSlots: string[]
+}
 
 export default function AppointmentBooking() {
   const [step, setStep] = useState<"form" | "confirmation">("form")
   const [appointmentData, setAppointmentData] = useState<AppointmentData>({
-    consultationCode: "092056",
-    patientName: "Ana Beatriz",
-    service: "Checkup geral",
-    doctor: "José guimarães",
-    hospital: "Hospital Central de Maputo",
-    dateTime: "Nov 21, 14:30 - 15:30",
+    consultationCode: "",
+    patientName: "",
+    service: "",
+    doctor: "",
+    hospital: "",
+    dateTime: "",
   })
 
   const [formData, setFormData] = useState({
-    patientName: "Ana Beatriz",
-    service: "Checkup geral",
-    doctor: "José guimarães",
-    hospital: "Hospital Central de Maputo",
-    date: "2024-11-21",
-    time: "14:30",
+    patientName: "",
+    service: "",
+    doctor: "",
+    hospital: "",
+    date: "",
+    time: "",
+  })
+
+  const [options, setOptions] = useState<AppointmentOptions>({
+    services: [],
+    doctors: [],
+    hospitals: [],
+    timeSlots: []
   })
 
   const [aiRecommendations, setAiRecommendations] = useState<AIRecommendation[]>([])
   const [showAIRecommendations, setShowAIRecommendations] = useState(false)
   const [isLoadingAI, setIsLoadingAI] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState("")
+  const router = useRouter()
+
+  useEffect(() => {
+    fetchOptions()
+    fetchUserData()
+  }, [])
+
+  const fetchOptions = async () => {
+    try {
+      const response = await fetch('/api/appointments/options')
+      if (response.ok) {
+        const data = await response.json()
+        setOptions(data)
+      }
+    } catch (error) {
+      console.error('Erro ao buscar opções:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const fetchUserData = async () => {
+    try {
+      const response = await fetch('/api/auth/me')
+      if (response.ok) {
+        const data = await response.json()
+        setFormData(prev => ({ ...prev, patientName: data.user.name }))
+      }
+    } catch (error) {
+      console.error('Erro ao buscar dados do usuário:', error)
+    }
+  }
 
   const generateAIRecommendations = async () => {
     setIsLoadingAI(true)
+    setError("")
 
-    // Simulate AI processing delay
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    try {
+      const response = await fetch('/api/appointments/ai-recommendations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          doctor: formData.doctor,
+          hospital: formData.hospital,
+          date: formData.date
+        }),
+      })
 
-    const recommendations: AIRecommendation[] = [
-      {
-        time: "09:00",
-        reason: "Menor tempo de espera baseado no histórico",
-        confidence: 95,
-        waitTime: "5-10 min",
-      },
-      {
-        time: "14:30",
-        reason: "Horário preferido do médico selecionado",
-        confidence: 88,
-        waitTime: "10-15 min",
-      },
-      {
-        time: "10:30",
-        reason: "Baixa ocupação hospitalar neste período",
-        confidence: 82,
-        waitTime: "15-20 min",
-      },
-    ]
-
-    setAiRecommendations(recommendations)
-    setIsLoadingAI(false)
-    setShowAIRecommendations(true)
+      if (response.ok) {
+        const recommendations = await response.json()
+        setAiRecommendations(recommendations)
+        setShowAIRecommendations(true)
+      } else {
+        setError("Erro ao gerar recomendações")
+      }
+    } catch (error) {
+      setError("Erro de conexão")
+    } finally {
+      setIsLoadingAI(false)
+    }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setAppointmentData({
-      ...appointmentData,
-      ...formData,
-      dateTime: `Nov 21, ${formData.time} - ${getEndTime(formData.time)}`,
-    })
-    setStep("confirmation")
+    setIsSubmitting(true)
+    setError("")
+
+    try {
+      const response = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
+
+      if (response.ok) {
+        const appointment = await response.json()
+        setAppointmentData(appointment)
+        setStep("confirmation")
+      } else {
+        const errorData = await response.json()
+        setError(errorData.error || "Erro ao agendar consulta")
+      }
+    } catch (error) {
+      setError("Erro de conexão")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const confirmAppointment = async () => {
+    // Lógica para confirmar o agendamento
+    router.push('/')
   }
 
   const getEndTime = (startTime: string) => {
     const [hours, minutes] = startTime.split(":").map(Number)
     const endHours = hours + 1
     return `${endHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    )
   }
 
   if (step === "confirmation") {
@@ -152,65 +201,35 @@ export default function AppointmentBooking() {
 
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium text-gray-600">Em nome de</Label>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-900">{appointmentData.patientName}</span>
-                    <Button variant="ghost" size="sm" className="p-1">
-                      <Edit3 className="h-4 w-4 text-blue-600" />
-                    </Button>
-                  </div>
+                  <span className="text-sm text-gray-900">{appointmentData.patientName}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium text-gray-600">Serviço</Label>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-900">{appointmentData.service}</span>
-                    <Button variant="ghost" size="sm" className="p-1">
-                      <Edit3 className="h-4 w-4 text-blue-600" />
-                    </Button>
-                  </div>
+                  <span className="text-sm text-gray-900">{appointmentData.service}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium text-gray-600">Médico</Label>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-900">{appointmentData.doctor}</span>
-                    <Button variant="ghost" size="sm" className="p-1">
-                      <Edit3 className="h-4 w-4 text-blue-600" />
-                    </Button>
-                  </div>
+                  <span className="text-sm text-gray-900">{appointmentData.doctor}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium text-gray-600">Hospital/ Centro de Saúde</Label>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-900">{appointmentData.hospital}</span>
-                    <Button variant="ghost" size="sm" className="p-1">
-                      <Edit3 className="h-4 w-4 text-blue-600" />
-                    </Button>
-                  </div>
+                  <span className="text-sm text-gray-900">{appointmentData.hospital}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium text-gray-600">Data e Hora</Label>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-900">{appointmentData.dateTime}</span>
-                    <Button variant="ghost" size="sm" className="p-1">
-                      <Edit3 className="h-4 w-4 text-blue-600" />
-                    </Button>
-                  </div>
+                  <span className="text-sm text-gray-900">{appointmentData.dateTime}</span>
                 </div>
               </div>
 
               {/* Doctor Image */}
               <div className="flex justify-center">
                 <div className="relative">
-                  <img
-                    src="/female-doctor-pediatrician.jpg"
-                    alt="Doctors"
-                    className="w-32 h-32 sm:w-48 sm:h-48 object-cover rounded-lg"
-                  />
-                  <div className="absolute -bottom-2 -right-2 sm:-bottom-4 sm:-right-4 w-12 h-12 sm:w-16 sm:h-16 bg-green-500 rounded-full flex items-center justify-center">
-                    <div className="w-6 h-6 sm:w-8 sm:h-8 bg-green-600 rounded-full" />
+                  <div className="w-32 h-32 sm:w-48 sm:h-48 bg-gray-200 rounded-lg flex items-center justify-center">
+                    <Stethoscope className="h-12 w-12 text-gray-400" />
                   </div>
                 </div>
               </div>
@@ -223,8 +242,12 @@ export default function AppointmentBooking() {
               </p>
             </div>
 
-            <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium text-base" size="lg">
-              Marcar consulta
+            <Button 
+              onClick={confirmAppointment}
+              className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium text-base" 
+              size="lg"
+            >
+              Confirmar Agendamento
             </Button>
           </CardContent>
         </Card>
@@ -239,6 +262,12 @@ export default function AppointmentBooking() {
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Agendar Consulta</h1>
         <p className="text-gray-600">Preencha os dados para agendar sua consulta</p>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
@@ -277,7 +306,7 @@ export default function AppointmentBooking() {
                   <SelectValue placeholder="Selecione o serviço" />
                 </SelectTrigger>
                 <SelectContent>
-                  {services.map((service) => (
+                  {options.services.map((service) => (
                     <SelectItem key={service} value={service}>
                       {service}
                     </SelectItem>
@@ -293,9 +322,9 @@ export default function AppointmentBooking() {
                   <SelectValue placeholder="Selecione o médico" />
                 </SelectTrigger>
                 <SelectContent>
-                  {doctors.map((doctor) => (
-                    <SelectItem key={doctor} value={doctor}>
-                      {doctor}
+                  {options.doctors.map((doctor) => (
+                    <SelectItem key={doctor.id} value={doctor.name}>
+                      {doctor.name} - {doctor.specialty}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -312,9 +341,11 @@ export default function AppointmentBooking() {
                   <SelectValue placeholder="Selecione o hospital" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Hospital Central de Maputo">Hospital Central de Maputo</SelectItem>
-                  <SelectItem value="Centro de Saúde A">Centro de Saúde A</SelectItem>
-                  <SelectItem value="Centro de Saúde B">Centro de Saúde B</SelectItem>
+                  {options.hospitals.map((hospital) => (
+                    <SelectItem key={hospital.id} value={hospital.name}>
+                      {hospital.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -333,7 +364,7 @@ export default function AppointmentBooking() {
                 variant="outline"
                 size="sm"
                 onClick={generateAIRecommendations}
-                disabled={isLoadingAI}
+                disabled={isLoadingAI || !formData.doctor || !formData.hospital || !formData.date}
                 className="flex items-center space-x-2 bg-transparent"
               >
                 <Brain className="h-4 w-4" />
@@ -352,6 +383,7 @@ export default function AppointmentBooking() {
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                 className="mt-1"
                 required
+                min={new Date().toISOString().split('T')[0]}
               />
             </div>
 
@@ -391,7 +423,7 @@ export default function AppointmentBooking() {
             {isLoadingAI && (
               <div className="flex items-center justify-center p-4 bg-blue-50 rounded-lg">
                 <div className="flex items-center space-x-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
                   <span className="text-sm text-blue-600">IA analisando melhores horários...</span>
                 </div>
               </div>
@@ -404,7 +436,7 @@ export default function AppointmentBooking() {
                   <SelectValue placeholder="Selecione o horário" />
                 </SelectTrigger>
                 <SelectContent>
-                  {timeSlots.map((time) => (
+                  {options.timeSlots.map((time) => (
                     <SelectItem key={time} value={time}>
                       {time}
                     </SelectItem>
@@ -419,8 +451,16 @@ export default function AppointmentBooking() {
           type="submit"
           className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium text-base"
           size="lg"
+          disabled={isSubmitting || !formData.patientName || !formData.service || !formData.doctor || !formData.hospital || !formData.date || !formData.time}
         >
-          Continuar para Confirmação
+          {isSubmitting ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Agendando...
+            </>
+          ) : (
+            'Continuar para Confirmação'
+          )}
         </Button>
       </form>
     </div>

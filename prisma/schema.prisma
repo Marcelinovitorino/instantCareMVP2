@@ -36,6 +36,7 @@ model User {
   @@map("users")
 }
 
+// Tabela de Médicos (atualizada)
 model Doctor {
   id              Int       @id @default(autoincrement())
   uuid            String    @unique @default(uuid())
@@ -50,10 +51,11 @@ model Doctor {
   // Relações
   appointments    Appointment[]
   prescriptions   Prescription[]
+  doctor_services DoctorService[] // Nova relação
 
   @@map("doctors")
 }
-
+// Tabela de Hospitais (atualizada)
 model Hospital {
   id         Int       @id @default(autoincrement())
   name       String
@@ -65,10 +67,12 @@ model Hospital {
 
   // Relações
   appointments Appointment[]
+  hospital_services HospitalService[] // Nova relação
 
   @@map("hospitals")
 }
 
+// Tabela de Consultas (ATUALIZADA)
 model Appointment {
   id                 Int       @id @default(autoincrement())
   uuid               String    @unique @default(uuid())
@@ -83,18 +87,75 @@ model Appointment {
   created_at         DateTime  @default(now())
   updated_at         DateTime  @default(now()) @updatedAt
 
-  // Relações
+  // NOVOS CAMPOS para compatibilidade com frontend
+  patient_name       String    // Nome do paciente no momento do agendamento
+  service_name       String    // Nome do serviço no momento do agendamento
+  doctor_name        String    // Nome do médico no momento do agendamento
+  hospital_name      String    // Nome do hospital no momento do agendamento
+
+  // Relações (atualizadas)
   user_id     Int
   user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
   doctor_id   Int?
   doctor      Doctor?   @relation(fields: [doctor_id], references: [id], onDelete: SetNull)
   hospital_id Int?
   hospital    Hospital? @relation(fields: [hospital_id], references: [id], onDelete: SetNull)
+  service_id  Int?
+  service     Service?  @relation(fields: [service_id], references: [id], onDelete: SetNull)
 
   prescriptions Prescription[]
   medical_exams MedicalExam[]
 
   @@map("appointments")
+}
+
+
+
+// Tabela de Serviços (nova)
+model Service {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  duration    Int      @default(60) // Duração em minutos
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now()) @updatedAt
+
+  // Relações
+  appointments Appointment[]
+
+  @@map("services")
+}
+
+// NOVA TABELA: Relação entre Médicos e Serviços
+model DoctorService {
+  id         Int      @id @default(autoincrement())
+  doctor_id  Int
+  service_id Int
+  created_at DateTime @default(now())
+
+  // Relações
+  doctor  Doctor  @relation(fields: [doctor_id], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [service_id], references: [id], onDelete: Cascade)
+
+  @@unique([doctor_id, service_id])
+  @@map("doctor_services")
+}
+
+
+// NOVA TABELA: Relação entre Hospitais e Serviços
+model HospitalService {
+  id         Int      @id @default(autoincrement())
+  hospital_id Int
+  service_id Int
+  created_at DateTime @default(now())
+
+  // Relações
+  hospital Hospital @relation(fields: [hospital_id], references: [id], onDelete: Cascade)
+  service Service  @relation(fields: [service_id], references: [id], onDelete: Cascade)
+
+  @@unique([hospital_id, service_id])
+  @@map("hospital_services")
 }
 
 model Prescription {
@@ -116,6 +177,23 @@ model Prescription {
   medications PrescribedMedication[]
 
   @@map("prescriptions")
+}
+
+model DoctorAvailability {
+  id           Int      @id @default(autoincrement())
+  doctor_id    Int
+  day_of_week  Int      // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+  start_time   String
+  end_time     String
+  is_available Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @default(now()) @updatedAt
+
+  // Relações
+  doctor Doctor @relation(fields: [doctor_id], references: [id], onDelete: Cascade)
+
+  @@unique([doctor_id, day_of_week])
+  @@map("doctor_availabilities")
 }
 
 model PrescribedMedication {
@@ -185,6 +263,24 @@ model HealthMetric {
   user    User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("health_metrics")
+}
+
+// NOVA TABELA: Bloqueios de agenda
+model ScheduleBlock {
+  id           Int      @id @default(autoincrement())
+  doctor_id    Int?
+  hospital_id  Int?
+  start_time   DateTime
+  end_time     DateTime
+  reason       String
+  is_recurring Boolean  @default(false)
+  created_at   DateTime @default(now())
+
+  // Relações
+  doctor   Doctor?   @relation(fields: [doctor_id], references: [id], onDelete: Cascade)
+  hospital Hospital? @relation(fields: [hospital_id], references: [id], onDelete: Cascade)
+
+  @@map("schedule_blocks")
 }
 
 model Reminder {
