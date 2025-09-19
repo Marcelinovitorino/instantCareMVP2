@@ -4,7 +4,8 @@ import type React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Home, User, Calendar, Settings, LogOut, Menu, X } from "lucide-react"
+import { Home, User, Calendar, Settings, LogOut, Menu, X, History, FileText } from "lucide-react"
+import { useRouter, usePathname } from "next/navigation"
 
 interface LayoutProps {
   children: React.ReactNode
@@ -12,6 +13,32 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const router = useRouter()
+  const pathname = usePathname()
+
+  const navigationItems = [
+    { path: "/", label: "Início", icon: Home },
+    { path: "/profile", label: "Perfil", icon: User },
+    { path: "/appointments", label: "Consultas", icon: Calendar },
+    { path: "/history", label: "Histórico", icon: History },
+    { path: "/prescriptions", label: "Receitas", icon: FileText },
+    { path: "/settings", label: "Configurações", icon: Settings },
+  ]
+
+  const handleNavigation = (path: string) => {
+    router.push(path)
+    setSidebarOpen(false) // Fecha a sidebar no mobile após navegar
+  }
+
+  const handleLogout = () => {
+    // Implementar lógica de logout aqui
+    console.log("Usuário deslogado")
+    router.push("/login")
+  }
+
+  const isActive = (path: string) => {
+    return pathname === path
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -27,11 +54,11 @@ export default function Layout({ children }: LayoutProps) {
           </Button>
 
           <div className="hidden md:flex items-center space-x-4">
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={() => handleNavigation("/profile")}>
               <User className="h-4 w-4 mr-2" />
               Meu Perfil
             </Button>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Sair
             </Button>
@@ -47,31 +74,29 @@ export default function Layout({ children }: LayoutProps) {
           } md:translate-x-0 transition-transform duration-200 ease-in-out z-20 md:z-0 flex flex-col`}
         >
           <div className="flex-1 p-4 space-y-1">
-            <Button variant="ghost" className="w-full justify-start" asChild>
-              <a href="/">
-                <Home className="h-4 w-4 mr-2" />
-                Início
-              </a>
-            </Button>
-            <Button variant="secondary" className="w-full justify-start">
-              <User className="h-4 w-4 mr-2" />
-              Perfil
-            </Button>
-            <Button variant="ghost" className="w-full justify-start" asChild>
-              <a href="/appointments">
-                <Calendar className="h-4 w-4 mr-2" />
-                Consultas
-              </a>
-            </Button>
-            <Button variant="ghost" className="w-full justify-start">
-              <Settings className="h-4 w-4 mr-2" />
-              Configurações
-            </Button>
+            {navigationItems.map((item) => {
+              const Icon = item.icon
+              return (
+                <Button
+                  key={item.path}
+                  variant={isActive(item.path) ? "secondary" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => handleNavigation(item.path)}
+                >
+                  <Icon className="h-4 w-4 mr-2" />
+                  {item.label}
+                </Button>
+              )
+            })}
           </div>
           
-          {/* Botão Sair - Agora posicionado corretamente */}
+          {/* Botão Sair */}
           <div className="p-4 border-t border-gray-200 mt-auto">
-            <Button variant="ghost" className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50">
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+              onClick={handleLogout}
+            >
               <LogOut className="h-4 w-4 mr-2" />
               Sair
             </Button>
@@ -117,4 +142,4 @@ export default function Layout({ children }: LayoutProps) {
       </footer>
     </div>
   )
-}   
+}
